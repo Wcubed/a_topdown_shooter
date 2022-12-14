@@ -1,0 +1,5 @@
+({
+    "image.player": File (
+        path: "vector_images/player.png",
+    ),
+})

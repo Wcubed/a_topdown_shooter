@@ -1,3 +1,6 @@
+# Ignore exported assets.
+assets/vector_images/**/*.png
+
 .idea
 
 ### Rust template
