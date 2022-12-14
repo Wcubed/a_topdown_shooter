@@ -1,5 +1,7 @@
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::Modifier::Shift;
 use leafwing_input_manager::prelude::*;
+use leafwing_input_manager::user_input::InputKind;
 use tracing::info;
 
 pub struct MainPlugin;
@@ -16,10 +18,17 @@ impl Plugin for MainPlugin {
 struct Player;
 
 fn spawn_player(mut commands: Commands) {
+    let mut input_map = InputMap::new([(KeyCode::Space, Action::HelloAction)]);
+
+    input_map.insert_chord(
+        [InputKind::Modifier(Shift), InputKind::Keyboard(KeyCode::H)],
+        Action::HelloAction,
+    );
+
     commands
         .spawn(InputManagerBundle::<Action> {
             action_state: ActionState::default(),
-            input_map: InputMap::new([(KeyCode::Space, Action::HelloAction)]),
+            input_map,
         })
         .insert(Player);
 }
