@@ -1,3 +1,6 @@
+mod localization;
+
+use crate::localization::{FluentLanguage, LocalizationPlugin};
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use leafwing_input_manager::prelude::*;
@@ -9,13 +12,15 @@ pub struct MainPlugin;
 impl Plugin for MainPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InputManagerPlugin::<Action>::default())
+            .add_plugin(LocalizationPlugin)
             .add_loading_state(
                 LoadingState::new(GameState::AssetLoading)
                     .continue_to_state(GameState::Main)
                     .with_dynamic_collections::<StandardDynamicAssetCollection>(vec![
                         "dynamic_assets.assets",
                     ])
-                    .with_collection::<ImageAssets>(),
+                    .with_collection::<ImageAssets>()
+                    .with_collection::<LocalizationAssets>(),
             )
             .add_state(GameState::AssetLoading)
             .add_system_set(SystemSet::on_enter(GameState::Main).with_system(spawn_player))
@@ -27,6 +32,12 @@ impl Plugin for MainPlugin {
 struct ImageAssets {
     #[asset(key = "image.player")]
     player: Handle<Image>,
+}
+
+#[derive(AssetCollection, Resource)]
+struct LocalizationAssets {
+    #[asset(key = "localization", collection(typed))]
+    languages: Vec<Handle<FluentLanguage>>,
 }
 
 #[derive(Component)]

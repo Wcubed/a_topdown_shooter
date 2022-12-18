@@ -2,4 +2,7 @@
     "image.player": File (
         path: "vector_images/player.png",
     ),
+    "localization": Files(
+        paths: ["localization/en-US.ftl"],
+    ),
 })
