@@ -1,4 +1,3 @@
-use crate::{App, Plugin};
 use bevy::asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
 use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
@@ -9,16 +8,9 @@ use thiserror::Error;
 use tracing::error;
 use unic_langid::{LanguageIdentifier, LanguageIdentifierError};
 
+/// Message that the language loader expects to be available in `.ftl` files,
+/// so that the language can be identified with a human-readable name.
 const LANGUAGE_NAME_ID: &str = "language_name";
-
-pub struct LocalizationPlugin;
-
-impl Plugin for LocalizationPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_asset::<FluentLanguage>()
-            .init_asset_loader::<FluentLanguageLoader>();
-    }
-}
 
 /// `*.ftl` localization file representing a single language for use with [fluent](https://github.com/projectfluent/fluent-rs).
 /// The name of the file should be a valid language identifier, for example `en-US.ftl`.
@@ -43,7 +35,9 @@ impl FluentLanguage {
             bundle,
         };
 
-        language.name = language.localize(LANGUAGE_NAME_ID);
+        language.name = language
+            .localize(LANGUAGE_NAME_ID)
+            .unwrap_or_else(|_| LANGUAGE_NAME_ID.to_string());
         debug!(
             "Loaded language with id `{}` and name `{}`",
             language.language_identifier, language.name
@@ -52,52 +46,55 @@ impl FluentLanguage {
         language
     }
 
-    pub fn localize(&self, message_id: &str) -> String {
+    pub fn identifier(&self) -> &LanguageIdentifier {
+        &self.language_identifier
+    }
+
+    pub fn localize(&self, message_id: &str) -> Result<String, LocalizationError> {
         self.localize_with_args(message_id, &[])
     }
 
-    pub fn localize_with_args(&self, id: &str, args: &[(&str, &str)]) -> String {
-        // TODO (Wybe 2022-12-18): Add a configurable fallback language if translations are missing.
+    pub fn localize_with_args(
+        &self,
+        message_id: &str,
+        arguments: &[(&str, &str)],
+    ) -> Result<String, LocalizationError> {
         let mut fluent_args = FluentArgs::new();
-        for (key, value) in args {
+        for (key, value) in arguments {
             fluent_args.set(<&str>::clone(key), <&str>::clone(value));
         }
 
-        if let Some(message) = self.bundle.get_message(id) {
-            if let Some(pattern) = message.value() {
-                let mut errors = vec![];
-                let result = self
-                    .bundle
-                    .format_pattern(pattern, Some(&fluent_args), &mut errors);
+        let message =
+            self.bundle
+                .get_message(message_id)
+                .ok_or(LocalizationError::MessageNotFound {
+                    message_id: message_id.to_string(),
+                    language_id: self.language_identifier.clone(),
+                })?;
+        let pattern = message.value().ok_or(LocalizationError::MessageNotFound {
+            message_id: message_id.to_string(),
+            language_id: self.language_identifier.clone(),
+        })?;
 
-                if !errors.is_empty() {
-                    let errors_string = errors
-                        .iter()
-                        .enumerate()
-                        // TODO (Wybe 2022-06-06): Clean up this error reporting?
-                        .map(|(i, err)| format!("\n{}: {:?}", i, err))
-                        .collect::<String>();
+        let mut errors = vec![];
+        let result = self
+            .bundle
+            .format_pattern(pattern, Some(&fluent_args), &mut errors);
 
-                    warn!(
-                        "Errors while localizing `{}` for language `{}`, with arguments {:x?}:{}",
-                        id, self.language_identifier, args, errors_string
-                    );
-                }
-                result.to_string()
-            } else {
-                warn!(
-                    "Could not localize `{}` for language `{}`",
-                    id, self.language_identifier
-                );
-                id.to_string()
-            }
-        } else {
+        if !errors.is_empty() {
+            let errors_string = errors
+                .iter()
+                .enumerate()
+                // TODO (Wybe 2022-06-06): Clean up this error reporting?
+                .map(|(i, err)| format!("\n{}: {:?}", i, err))
+                .collect::<String>();
+
             warn!(
-                "Could not localize `{}` for language `{}`",
-                id, self.language_identifier
+                "Errors while localizing `{}` for language `{}`, with arguments {:x?}:{}",
+                message_id, self.language_identifier, arguments, errors_string
             );
-            id.to_string()
         }
+        Ok(result.to_string())
     }
 }
 
@@ -114,9 +111,9 @@ impl AssetLoader for FluentLanguageLoader {
             let language_id = load_context
                 .path()
                 .file_stem()
-                .ok_or(LocalizationLoaderError::AssetWithoutFileName)?
+                .ok_or(LanguageLoadingError::AssetWithoutFileName)?
                 .to_str()
-                .ok_or(LocalizationLoaderError::AssetWithoutFileName)?;
+                .ok_or(LanguageLoadingError::AssetWithoutFileName)?;
 
             let fluent_string = String::from_utf8_lossy(bytes).to_string();
 
@@ -135,7 +132,7 @@ impl AssetLoader for FluentLanguageLoader {
 fn load_language_from_fluent_string(
     fluent_string: String,
     lang_id_string: &str,
-) -> Result<FluentLanguage, LocalizationLoaderError> {
+) -> Result<FluentLanguage, LanguageLoadingError> {
     let resource = FluentResource::try_new(fluent_string).map_err(|(_, errors)| {
         let error_listing = errors
             .iter()
@@ -143,7 +140,7 @@ fn load_language_from_fluent_string(
             .map(|(i, err)| format!("\n{}: {:?}", i, err))
             .collect::<String>();
 
-        LocalizationLoaderError::ParsingFluentFileFailed { error_listing }
+        LanguageLoadingError::ParsingFluentFileFailed { error_listing }
     })?;
 
     let id = lang_id_string.parse::<LanguageIdentifier>()?;
@@ -156,14 +153,23 @@ fn load_language_from_fluent_string(
             .map(|(i, err)| format!("\n{}: {:?}", i, err))
             .collect::<String>();
 
-        LocalizationLoaderError::ParsingFluentFileFailed { error_listing }
+        LanguageLoadingError::ParsingFluentFileFailed { error_listing }
     })?;
 
     Ok(FluentLanguage::new(id, bundle))
 }
 
 #[derive(Error, Debug)]
-enum LocalizationLoaderError {
+pub enum LocalizationError {
+    #[error("Couldn't find message with id `{message_id}` for language `{language_id}`")]
+    MessageNotFound {
+        message_id: String,
+        language_id: LanguageIdentifier,
+    },
+}
+
+#[derive(Error, Debug)]
+enum LanguageLoadingError {
     #[error("Got a language asset without file name. The file name should be a valid language identifier, like `en-US.ftl`")]
     AssetWithoutFileName,
 

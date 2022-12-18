@@ -1,16 +1,36 @@
+#![forbid(unsafe_code)]
+#![warn(clippy::all)]
+
 mod localization;
 
-use crate::localization::{FluentLanguage, LocalizationPlugin};
+use crate::localization::{Localization, LocalizationAssets, LocalizationPlugin};
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::user_input::InputKind;
+use std::alloc::System;
 use tracing::info;
+
+const GREETING_ID: &str = "greeting";
 
 pub struct MainPlugin;
 
 impl Plugin for MainPlugin {
     fn build(&self, app: &mut App) {
+        // Enable debug logging only when running in debug mode.
+        #[cfg(debug_assertions)]
+        app.add_plugins(DefaultPlugins.set(LogPlugin {
+            level: bevy::log::Level::DEBUG,
+            filter: "info,wgpu_core=warn,wgpu_hal=warn,a_topdown_shooter=debug".into(),
+        }));
+
+        #[cfg(not(debug_assertions))]
+        app.add_plugins(DefaultPlugins.set(LogPlugin {
+            level: bevy::log::Level::INFO,
+            filter: "info,wgpu_core=warn,wgpu_hal=warn".into(),
+        }));
+
         app.add_plugin(InputManagerPlugin::<Action>::default())
             .add_plugin(LocalizationPlugin)
             .add_loading_state(
@@ -24,7 +44,7 @@ impl Plugin for MainPlugin {
             )
             .add_state(GameState::AssetLoading)
             .add_system_set(SystemSet::on_enter(GameState::Main).with_system(spawn_player))
-            .add_system(hello_system);
+            .add_system_set(SystemSet::on_update(GameState::Main).with_system(greeting_system));
     }
 }
 
@@ -32,12 +52,6 @@ impl Plugin for MainPlugin {
 struct ImageAssets {
     #[asset(key = "image.player")]
     player: Handle<Image>,
-}
-
-#[derive(AssetCollection, Resource)]
-struct LocalizationAssets {
-    #[asset(key = "localization", collection(typed))]
-    languages: Vec<Handle<FluentLanguage>>,
 }
 
 #[derive(Component)]
@@ -74,10 +88,13 @@ fn spawn_player(mut commands: Commands, image_assets: Res<ImageAssets>) {
         .insert(Player);
 }
 
-fn hello_system(query: Query<&ActionState<Action>, With<Player>>) {
+fn greeting_system(
+    query: Query<&ActionState<Action>, With<Player>>,
+    localization: Res<Localization>,
+) {
     if let Ok(action_state) = query.get_single() {
         if action_state.just_pressed(Action::HelloAction) {
-            info!("Hello World!");
+            info!("{}", localization.localize(GREETING_ID));
         }
     }
 }
