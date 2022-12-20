@@ -1,15 +1,16 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all)]
 
+mod camera;
 mod localization;
 
+use crate::camera::GameCameraPlugin;
 use crate::localization::{Localization, LocalizationAssets, LocalizationPlugin};
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::user_input::InputKind;
-use std::alloc::System;
 use tracing::info;
 
 const GREETING_ID: &str = "greeting";
@@ -33,6 +34,7 @@ impl Plugin for MainPlugin {
 
         app.add_plugin(InputManagerPlugin::<Action>::default())
             .add_plugin(LocalizationPlugin)
+            .add_plugin(GameCameraPlugin)
             .add_loading_state(
                 LoadingState::new(GameState::AssetLoading)
                     .continue_to_state(GameState::Main)
@@ -64,8 +66,6 @@ enum GameState {
 }
 
 fn spawn_player(mut commands: Commands, image_assets: Res<ImageAssets>) {
-    commands.spawn(Camera2dBundle::default());
-
     let mut input_map = InputMap::new([(KeyCode::Space, Action::HelloAction)]);
 
     input_map.insert_chord(

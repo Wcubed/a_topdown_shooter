@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use itertools::Itertools;
 
-const DEFAULT_LANGUAGE: &str = "en-US";
+const DEFAULT_LANGUAGE_IDENTIFIER: &str = "en-US";
 
 pub struct LocalizationPlugin;
 
@@ -71,7 +71,7 @@ fn initialize_localization(
 
     let default_language_index = languages
         .iter()
-        .find_position(|language| *language.identifier() == "en-US")
+        .find_position(|language| *language.identifier() == DEFAULT_LANGUAGE_IDENTIFIER)
         .map(|(index, _)| index)
         .expect("Cannot start, need at least a language file for English (en-US.ftl).");
 

@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, rust_2018_idioms)]
 
-use a_topdown_shooter::MainPlugin;
 use bevy::app::App;
+use space_bees::MainPlugin;
 
 fn main() -> color_eyre::eyre::Result<()> {
     // Install the fancy panic / error printer.
