@@ -2,15 +2,15 @@
 #![warn(clippy::all)]
 
 mod camera;
+mod input;
 mod localization;
 
 use crate::camera::GameCameraPlugin;
+use crate::input::{Action, ActionRes, InputPlugin};
 use crate::localization::{Localization, LocalizationAssets, LocalizationPlugin};
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
-use leafwing_input_manager::prelude::*;
-use leafwing_input_manager::user_input::InputKind;
 use tracing::info;
 
 const GREETING_ID: &str = "greeting";
@@ -32,7 +32,7 @@ impl Plugin for MainPlugin {
             filter: "info,wgpu_core=warn,wgpu_hal=warn".into(),
         }));
 
-        app.add_plugin(InputManagerPlugin::<Action>::default())
+        app.add_plugin(InputPlugin)
             .add_plugin(LocalizationPlugin)
             .add_plugin(GameCameraPlugin)
             .add_loading_state(
@@ -66,40 +66,16 @@ enum GameState {
 }
 
 fn spawn_player(mut commands: Commands, image_assets: Res<ImageAssets>) {
-    let mut input_map = InputMap::new([(KeyCode::Space, Action::HelloAction)]);
-
-    input_map.insert_chord(
-        [
-            InputKind::Modifier(Modifier::Shift),
-            InputKind::Keyboard(KeyCode::H),
-        ],
-        Action::HelloAction,
-    );
-
     commands
-        .spawn(InputManagerBundle::<Action> {
-            action_state: ActionState::default(),
-            input_map,
-        })
-        .insert(SpriteBundle {
+        .spawn(SpriteBundle {
             texture: image_assets.player.clone(),
             ..default()
         })
         .insert(Player);
 }
 
-fn greeting_system(
-    query: Query<&ActionState<Action>, With<Player>>,
-    localization: Res<Localization>,
-) {
-    if let Ok(action_state) = query.get_single() {
-        if action_state.just_pressed(Action::HelloAction) {
-            info!("{}", localization.localize(GREETING_ID));
-        }
+fn greeting_system(actions: ActionRes, localization: Res<Localization>) {
+    if actions.just_pressed(Action::HelloAction) {
+        info!("{}", localization.localize(GREETING_ID));
     }
-}
-
-#[derive(Actionlike, Eq, PartialEq, Clone, Copy, Hash, Debug)]
-enum Action {
-    HelloAction,
 }

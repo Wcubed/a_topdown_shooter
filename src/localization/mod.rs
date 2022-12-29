@@ -1,6 +1,6 @@
 mod languages;
 
-use crate::localization::languages::{FluentLanguage, FluentLanguageLoader, LocalizationError};
+use crate::localization::languages::{FluentLanguage, FluentLanguageLoader};
 use crate::GameState;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;

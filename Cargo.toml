@@ -11,6 +11,7 @@ bevy = { version = "0.9.1", features = ["dynamic"] }
 # Bevy plugins
 leafwing-input-manager = "0.7.1"
 bevy_asset_loader = { version = "0.14.1", features = ["standard_dynamic_assets"] }
+bevy_egui = "0.18.0"
 
 # Other dependencies
 tracing = "0.1.37"
