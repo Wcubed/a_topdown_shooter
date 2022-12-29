@@ -21,24 +21,33 @@ pub enum Action {
     CameraDown,
     CameraLeft,
     CameraRight,
+    CameraZoomIn,
+    CameraZoomOut,
 }
 
 fn add_input_actions(mut commands: Commands) {
-    let mut input_map = InputMap::new([
-        (KeyCode::Space, Action::HelloAction),
-        (KeyCode::W, Action::CameraUp),
-        (KeyCode::S, Action::CameraDown),
-        (KeyCode::A, Action::CameraLeft),
-        (KeyCode::D, Action::CameraRight),
-    ]);
-
-    input_map.insert_chord(
-        [
-            InputKind::Modifier(Modifier::Shift),
-            InputKind::Keyboard(KeyCode::H),
-        ],
-        Action::HelloAction,
-    );
+    let mut input_map = InputMap::default();
+    input_map
+        .insert(KeyCode::Space, Action::HelloAction)
+        .insert(KeyCode::W, Action::CameraUp)
+        .insert(KeyCode::S, Action::CameraDown)
+        .insert(KeyCode::A, Action::CameraLeft)
+        .insert(KeyCode::D, Action::CameraRight)
+        .insert(
+            InputKind::MouseWheel(MouseWheelDirection::Up),
+            Action::CameraZoomIn,
+        )
+        .insert(
+            InputKind::MouseWheel(MouseWheelDirection::Down),
+            Action::CameraZoomOut,
+        )
+        .insert_chord(
+            [
+                InputKind::Modifier(Modifier::Shift),
+                InputKind::Keyboard(KeyCode::H),
+            ],
+            Action::HelloAction,
+        );
 
     commands.insert_resource(input_map);
     commands.insert_resource(ActionState::<Action>::default())
