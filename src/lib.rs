@@ -17,6 +17,13 @@ use tracing::info;
 
 const GREETING_ID: &str = "greeting";
 
+const UI_MARGIN: f32 = 10.0;
+
+// TODO (Wybe 2022-12-30): Mouse clicks on the UI should somehow not affect the game itself.
+//      probably using `Res<UiClaimsMouse>`. But how can we do this with Leafwing input manager?
+//      because the whole point of the input manager is to decouple the fact that the input came in
+//      via the mouse.
+
 pub struct MainPlugin;
 
 impl Plugin for MainPlugin {
@@ -60,7 +67,8 @@ impl Plugin for MainPlugin {
                 SystemSet::on_update(GameState::Main)
                     .with_system(greeting_system)
                     .with_system(planet_selection_system)
-                    .with_system(planet_info_ui),
+                    .with_system(planet_info_ui)
+                    .with_system(main_actions_ui),
             );
     }
 }
@@ -105,28 +113,30 @@ fn planet_selection_system(
     cursor_position: Res<GlobalCursorPosition>,
     planets: Query<(Entity, &GlobalTransform, Option<&Selected>), With<Planet>>,
 ) {
-    if actions.just_pressed(Action::PrimaryInteraction) {
-        let mut found_planet = false;
+    if !actions.just_pressed(Action::PrimaryInteraction) {
+        return;
+    }
 
-        for (entity, transform, maybe_selected) in planets.iter() {
-            // TODO (Wybe 2022-12-30): Put in planet sizes.
-            if cursor_position.distance(transform.translation().xy()) < 16.0 {
-                found_planet = true;
+    let mut found_planet = false;
 
-                if maybe_selected.is_none() {
-                    commands.entity(entity).insert(Selected);
-                } else {
-                    commands.entity(entity).remove::<Selected>();
-                }
+    for (entity, transform, maybe_selected) in planets.iter() {
+        // TODO (Wybe 2022-12-30): Put in planet sizes.
+        if cursor_position.distance(transform.translation().xy()) < 16.0 {
+            found_planet = true;
+
+            if maybe_selected.is_none() {
+                commands.entity(entity).insert(Selected);
+            } else {
+                commands.entity(entity).remove::<Selected>();
             }
         }
+    }
 
-        if !found_planet {
-            // No planets found? Deselect all.
-            for (entity, _, maybe_selected) in planets.iter() {
-                if maybe_selected.is_some() {
-                    commands.entity(entity).remove::<Selected>();
-                }
+    if !found_planet {
+        // No planets found? Deselect all.
+        for (entity, _, maybe_selected) in planets.iter() {
+            if maybe_selected.is_some() {
+                commands.entity(entity).remove::<Selected>();
             }
         }
     }
@@ -136,11 +146,32 @@ fn planet_info_ui(
     mut egui_context: ResMut<EguiContext>,
     selected_planets: Query<&Planet, With<Selected>>,
 ) {
-    egui::Window::new("Selected planets")
-        .anchor(egui::Align2::LEFT_TOP, [0., 0.])
+    if selected_planets.is_empty() {
+        return;
+    }
+
+    egui::Window::new("selected_planets")
+        .title_bar(false)
+        .resizable(false)
+        .anchor(egui::Align2::LEFT_TOP, (UI_MARGIN, UI_MARGIN))
         .show(egui_context.ctx_mut(), |ui| {
             for planet in selected_planets.iter() {
                 ui.label(&planet.name);
+            }
+        });
+}
+
+fn main_actions_ui(mut egui_context: ResMut<EguiContext>, localization: Res<Localization>) {
+    egui::Window::new("main_actions")
+        .title_bar(false)
+        .resizable(false)
+        .anchor(egui::Align2::LEFT_BOTTOM, (UI_MARGIN, -UI_MARGIN))
+        .show(egui_context.ctx_mut(), |ui| {
+            if ui
+                .button(localization.localize("new_transport_line"))
+                .clicked()
+            {
+                println!("New line button clicked");
             }
         });
 }
