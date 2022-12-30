@@ -6,9 +6,10 @@ mod input;
 mod localization;
 
 use crate::camera::GameCameraPlugin;
-use crate::input::{Action, ActionRes, InputPlugin};
+use crate::input::{Action, ActionRes, GlobalCursorPosition, InputPlugin};
 use crate::localization::{Localization, LocalizationAssets, LocalizationPlugin};
 use bevy::log::LogPlugin;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use tracing::info;
@@ -21,10 +22,17 @@ impl Plugin for MainPlugin {
     fn build(&self, app: &mut App) {
         // Enable debug logging only when running in debug mode.
         #[cfg(debug_assertions)]
-        app.add_plugins(DefaultPlugins.set(LogPlugin {
-            level: bevy::log::Level::DEBUG,
-            filter: "info,wgpu_core=warn,wgpu_hal=warn,a_topdown_shooter=debug".into(),
-        }));
+        app.add_plugins(
+            DefaultPlugins
+                .set(LogPlugin {
+                    level: bevy::log::Level::DEBUG,
+                    filter: "info,wgpu_core=warn,wgpu_hal=warn,a_topdown_shooter=debug".into(),
+                })
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..default()
+                }),
+        );
 
         #[cfg(not(debug_assertions))]
         app.add_plugins(DefaultPlugins.set(LogPlugin {
@@ -45,19 +53,20 @@ impl Plugin for MainPlugin {
                     .with_collection::<LocalizationAssets>(),
             )
             .add_state(GameState::AssetLoading)
-            .add_system_set(SystemSet::on_enter(GameState::Main).with_system(spawn_player))
-            .add_system_set(SystemSet::on_update(GameState::Main).with_system(greeting_system));
+            .add_system_set(SystemSet::on_enter(GameState::Main).with_system(spawn_planets))
+            .add_system_set(
+                SystemSet::on_update(GameState::Main)
+                    .with_system(greeting_system)
+                    .with_system(planet_selection_system),
+            );
     }
 }
 
 #[derive(AssetCollection, Resource)]
 struct ImageAssets {
-    #[asset(key = "image.player")]
-    player: Handle<Image>,
+    #[asset(key = "image.planet")]
+    planet: Handle<Image>,
 }
-
-#[derive(Component)]
-struct Player;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum GameState {
@@ -65,13 +74,35 @@ enum GameState {
     Main,
 }
 
-fn spawn_player(mut commands: Commands, image_assets: Res<ImageAssets>) {
-    commands
-        .spawn(SpriteBundle {
-            texture: image_assets.player.clone(),
-            ..default()
-        })
-        .insert(Player);
+#[derive(Component)]
+struct Planet;
+
+fn spawn_planets(mut commands: Commands, image_assets: Res<ImageAssets>) {
+    for i in 0..10 {
+        commands
+            .spawn(SpriteBundle {
+                texture: image_assets.planet.clone(),
+                transform: Transform::from_xyz(i as f32 * 100.0, 0.0, 0.0),
+                ..default()
+            })
+            .insert(Planet);
+    }
+}
+
+fn planet_selection_system(
+    mut commands: Commands,
+    actions: ActionRes,
+    cursor_position: Res<GlobalCursorPosition>,
+    planets: Query<&GlobalTransform, With<Planet>>,
+) {
+    if actions.just_pressed(Action::PrimaryInteraction) {
+        for planet in planets.iter() {
+            // TODO (Wybe 2022-12-30): Put in planet sizes.
+            if cursor_position.distance(planet.translation().xy()) < 10.0 {
+                println!("Clicked a planet!");
+            }
+        }
+    }
 }
 
 fn greeting_system(actions: ActionRes, localization: Res<Localization>) {

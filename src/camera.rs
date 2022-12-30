@@ -1,5 +1,6 @@
 use crate::input::{Action, ActionRes};
 use crate::GameState;
+use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
 
 /// Speed in game units per second.
@@ -23,16 +24,21 @@ impl Plugin for GameCameraPlugin {
 }
 
 #[derive(Component)]
-struct GameCameraMarker;
+pub struct MainCamera;
 
 fn camera_setup_system(mut commands: Commands) {
     commands
-        .spawn(Camera2dBundle::default())
-        .insert(GameCameraMarker);
+        .spawn(Camera2dBundle {
+            camera_2d: Camera2d {
+                clear_color: ClearColorConfig::Custom(Color::BLACK),
+            },
+            ..default()
+        })
+        .insert(MainCamera);
 }
 
 fn camera_zoom_system(
-    mut camera_query: Query<&mut OrthographicProjection, With<GameCameraMarker>>,
+    mut camera_query: Query<&mut OrthographicProjection, With<MainCamera>>,
     actions: ActionRes,
 ) {
     let Ok(mut projection) = camera_query.get_single_mut() else { return; };
@@ -52,7 +58,7 @@ fn camera_zoom_system(
 }
 
 fn camera_movement_system(
-    mut camera_query: Query<&mut Transform, With<GameCameraMarker>>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
     time: Res<Time>,
     actions: ActionRes,
 ) {

@@ -1,5 +1,9 @@
+mod cursor_position;
+
+use crate::input::cursor_position::update_global_cursor_position;
+pub use crate::input::cursor_position::GlobalCursorPosition;
 use bevy::app::{App, Plugin};
-use bevy::prelude::{Commands, KeyCode, Res};
+use bevy::prelude::{Commands, KeyCode, MouseButton, Res};
 use leafwing_input_manager::prelude::*;
 use leafwing_input_manager::user_input::InputKind;
 
@@ -10,13 +14,17 @@ pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InputManagerPlugin::<Action>::default())
-            .add_startup_system(add_input_actions);
+            .insert_resource(GlobalCursorPosition::default())
+            .add_startup_system(add_input_actions)
+            .add_system(update_global_cursor_position);
     }
 }
 
 #[derive(Actionlike, Eq, PartialEq, Clone, Copy, Hash, Debug)]
 pub enum Action {
     HelloAction,
+    PrimaryInteraction,
+    // ---- Camera actions ----
     CameraUp,
     CameraDown,
     CameraLeft,
@@ -29,6 +37,7 @@ fn add_input_actions(mut commands: Commands) {
     let mut input_map = InputMap::default();
     input_map
         .insert(KeyCode::Space, Action::HelloAction)
+        .insert(MouseButton::Left, Action::PrimaryInteraction)
         .insert(KeyCode::W, Action::CameraUp)
         .insert(KeyCode::S, Action::CameraDown)
         .insert(KeyCode::A, Action::CameraLeft)

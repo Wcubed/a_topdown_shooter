@@ -1,6 +1,6 @@
 ({
-    "image.player": File (
-        path: "vector_images/player.png",
+    "image.planet": File (
+        path: "vector_images/planet.png",
     ),
     "language_files": Files(
         paths: ["localization/en-US.ftl"],
